@@ -1,9 +1,18 @@
 package api
 
 import (
+	"encoding/json"
+	"fmt"
+	"log"
 	"net/http"
+	"strconv"
+	"strings"
 	"time"
+
+	"github.com/EthanArc/go_final_project/pkg/db"
 )
+
+const readerLimit = 1048576
 
 // registering URL paths
 func Init(mux *http.ServeMux) {
@@ -26,6 +35,53 @@ func taskHandler(resWri http.ResponseWriter, req *http.Request) {
 	default:
 		http.Error(resWri, "Method Not Allowed", http.StatusMethodNotAllowed)
 	}
+}
+
+func addTaskHandler(resWri http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodPost { //Drops any traffic that is not HTTP
+		sendJSONResponse(resWri, http.StatusMethodNotAllowed, map[string]string{"error": "Method not allowed"})
+		return
+	}
+
+	//if !strings.HasPrefix(req.Header.Get("Content-Type"), "application/json") { // Checking state
+	//	sendJSONResponse(resWri, http.StatusUnsupportedMediaType, map[string]string{"error": "Expected JSON content"})
+	//	return
+	//}
+	contentType := strings.ToLower(req.Header.Get("Content-Type"))
+
+	if !strings.Contains(contentType, "application/json") {
+		sendJSONResponse(resWri, http.StatusUnsupportedMediaType, map[string]string{"error": "Expected JSON content"})
+		return
+	}
+
+	req.Body = http.MaxBytesReader(resWri, req.Body, readerLimit) // 1MB limit
+	defer req.Body.Close()
+
+	var task db.Task
+	if err := json.NewDecoder(req.Body).Decode(&task); err != nil {
+		sendJSONResponse(resWri, http.StatusBadRequest, map[string]string{"error": "Invalid JSON format"})
+		log.Printf("JSON decode error: %v", err)
+		return
+	}
+
+	if task.Title == "" {
+		sendJSONResponse(resWri, http.StatusBadRequest, map[string]string{"error": "Title is required"})
+		return
+	}
+
+	if err := checkDate(&task); err != nil {
+		sendJSONResponse(resWri, http.StatusBadRequest, map[string]string{"error": fmt.Sprintf("Invalid date: %v", err)})
+		return
+	}
+
+	id, err := db.AddTask(&task)
+	if err != nil {
+		sendJSONResponse(resWri, http.StatusInternalServerError, map[string]string{"error": "Failed to add task"})
+		log.Printf("DB error: %v", err)
+		return
+	}
+
+	sendJSONResponse(resWri, http.StatusCreated, map[string]string{"id": strconv.FormatInt(id, 10)})
 }
 
 func nextDayHandler(resWri http.ResponseWriter, req *http.Request) {
@@ -63,5 +119,7 @@ func nextDayHandler(resWri http.ResponseWriter, req *http.Request) {
 
 	//Send response
 	resWri.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	resWri.Write([]byte(nextDate))
+	if _, err := resWri.Write([]byte(nextDate)); err != nil {
+		log.Printf("failed to write response: %v", err)
+	}
 }

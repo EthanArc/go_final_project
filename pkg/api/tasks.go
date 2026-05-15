@@ -12,6 +12,8 @@ import (
 	"github.com/EthanArc/go_final_project/pkg/db"
 )
 
+const tLimit = 50
+
 type TaskResp struct {
 	Tasks []*db.Task `json:"tasks"`
 }
@@ -42,7 +44,7 @@ func tasksHandler(resWri http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	tasks, err := db.Tasks(50)
+	tasks, err := db.Tasks(tLimit)
 	if err != nil {
 		sendJSRes(resWri, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		return
@@ -54,10 +56,10 @@ func tasksHandler(resWri http.ResponseWriter, req *http.Request) {
 }
 
 func getTaskHandler(resWri http.ResponseWriter, req *http.Request) {
-	if req.Method != http.MethodGet {
-		sendJSRes(resWri, http.StatusMethodNotAllowed, map[string]string{"error": "Expected GET"})
-		return
-	}
+	//	if req.Method != http.MethodGet {
+	//	sendJSRes(resWri, http.StatusMethodNotAllowed, map[string]string{"error": "Expected GET"})
+	//		return
+	//	}
 
 	idStr, err := parseIDParam(req)
 	if err != nil {
@@ -75,10 +77,10 @@ func getTaskHandler(resWri http.ResponseWriter, req *http.Request) {
 }
 
 func updateTaskHandler(resWri http.ResponseWriter, req *http.Request) {
-	if req.Method != http.MethodPut && req.Method != http.MethodPost {
-		sendJSRes(resWri, http.StatusMethodNotAllowed, map[string]string{"error": "Expected POST or PUT"})
-		return
-	}
+	//	if req.Method != http.MethodPut && req.Method != http.MethodPost {
+	//		sendJSRes(resWri, http.StatusMethodNotAllowed, map[string]string{"error": "Expected POST or PUT"})
+	//		return
+	//	}
 
 	var task db.Task
 	defer req.Body.Close()

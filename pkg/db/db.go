@@ -12,10 +12,10 @@ import (
 // Creating a scheduler table if it does not already exist
 const scheme = `CREATE TABLE IF NOT EXISTS scheduler (   
 	id INTEGER PRIMARY KEY AUTOINCREMENT,
-	date TEXT NOT NULL DEFAULT '',
-	title TEXT NOT NULL DEFAULT '',
+	date CHAR(8) NOT NULL DEFAULT '',
+	title VARCHAR(64) NOT NULL DEFAULT '',
 	comment TEXT NOT NULL DEFAULT '',
-	repeat TEXT NOT NULL DEFAULT ''
+	repeat VARCHAR(128) NOT NULL DEFAULT ''
 );
 CREATE INDEX IF NOT EXISTS scheduler_date ON scheduler(date);` // Creating an index on the date column
 
@@ -29,8 +29,8 @@ func Init(dbFile string) error {
 		return fmt.Errorf("failed to open db: %w", err)
 	}
 
-	db.SetMaxOpenConns(1)
-	db.SetMaxIdleConns(1)
+	db.SetMaxOpenConns(0)
+	db.SetMaxIdleConns(2)
 	db.SetConnMaxLifetime(0)
 
 	cont, cancel := context.WithTimeout(context.Background(), 3*time.Second)

@@ -37,25 +37,42 @@ func main() {
 	signal.Notify(shutdownChan, os.Interrupt, syscall.SIGTERM)
 
 	// 5. Start server in a background goroutine
+	serverErrors := make(chan error, 1)
 	go func() {
 		logger.Info("Starting server on port :7540")
 		if err := srv.Server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			logger.Error("Server startup error", "error", err)
-			os.Exit(1)
+			serverErrors <- err
 		}
 	}()
 
-	// 6. Wait for termination signal
-	sig := <-shutdownChan
-	logger.Info("Shutdown signal received", "signal", sig.String())
+	// Chanal for system signals
+	shutdown := make(chan os.Signal, 1)
+	signal.Notify(shutdown, os.Interrupt, syscall.SIGTERM)
 
-	// 7. Execute graceful shutdown with timeout
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
+	// Waiting for errors or signal to exit
+	select {
+	case err := <-serverErrors:
+		logger.Error("Server startup error", "error", err)
+		// Make deffer work
+		return
 
-	if err := srv.Server.Shutdown(ctx); err != nil {
-		logger.Error("Server forced to shutdown", "error", err)
-	} else {
+	case sig := <-shutdown:
+		{
+			signal.Stop(shutdownChan)
+			logger.Info("Shutdown signal received", "signal", sig)
+
+		}
+		logger.Info("Shutdown signal received", "signal", sig)
+
+		// Time to end currrent processes
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		if err := srv.Server.Shutdown(ctx); err != nil {
+			logger.Error("Graceful shutdown failed", "error", err)
+			_ = srv.Server.Close() // Shutdown
+			return
+		}
 		logger.Info("Server stopped cleanly")
 	}
 }

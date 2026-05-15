@@ -2,14 +2,9 @@ package api
 
 import (
 	"encoding/json"
-	"strconv"
-	"strings"
-	"time"
-
-	//	"errors"
-	"fmt"
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/EthanArc/go_final_project/pkg/db"
 )
@@ -23,47 +18,6 @@ func sendJSONResponse(resWri http.ResponseWriter, status int, data any) {
 	if err := json.NewEncoder(resWri).Encode(data); err != nil {
 		log.Printf("JSON encode error: %v", err)
 	}
-}
-
-func addTaskHandler(resWri http.ResponseWriter, req *http.Request) {
-	if req.Method != http.MethodPost { //Drops any traffic that is not HTTP
-		sendJSONResponse(resWri, http.StatusMethodNotAllowed, map[string]string{"error": "Method not allowed"})
-		return
-	}
-
-	if !strings.HasPrefix(req.Header.Get("Content-Type"), "application/json") { // Checking state
-		sendJSONResponse(resWri, http.StatusUnsupportedMediaType, map[string]string{"error": "Expected JSON content"})
-		return
-	}
-
-	req.Body = http.MaxBytesReader(resWri, req.Body, 1048576) // 1MB limit
-	defer req.Body.Close()
-
-	var task db.Task
-	if err := json.NewDecoder(req.Body).Decode(&task); err != nil {
-		sendJSONResponse(resWri, http.StatusBadRequest, map[string]string{"error": "Invalid JSON format"})
-		log.Printf("JSON decode error: %v", err)
-		return
-	}
-
-	if task.Title == "" {
-		sendJSONResponse(resWri, http.StatusBadRequest, map[string]string{"error": "Title is required"})
-		return
-	}
-
-	if err := checkDate(&task); err != nil {
-		sendJSONResponse(resWri, http.StatusBadRequest, map[string]string{"error": fmt.Sprintf("Invalid date: %v", err)})
-		return
-	}
-
-	id, err := db.AddTask(&task)
-	if err != nil {
-		sendJSONResponse(resWri, http.StatusInternalServerError, map[string]string{"error": "Failed to add task"})
-		log.Printf("DB error: %v", err)
-		return
-	}
-
-	sendJSONResponse(resWri, http.StatusCreated, map[string]string{"id": strconv.FormatInt(id, 10)})
 }
 
 func checkDate(task *db.Task) error {
